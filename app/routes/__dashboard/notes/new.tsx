@@ -11,6 +11,8 @@ export async function action({ request }: ActionArgs) {
   const formData = await request.formData();
   const name = formData.get("name");
   const email = formData.get("email");
+  const tin = formData.get("tin");
+  const deviceno = formData.get("device_no");
 
   if (typeof name !== "string" || name.length === 0) {
     return json(
@@ -31,7 +33,9 @@ export async function action({ request }: ActionArgs) {
     .insert({
       name,
       email,
-      settings: {
+      tin,
+      deviceno,
+      meta: {
         should_invoice: true,
         should_receipt: false,
         commodity_code: "801992"
@@ -55,6 +59,8 @@ export default function NewNotePage() {
   const actionData = useActionData<typeof action>();
   const nameRef = React.useRef<HTMLInputElement>(null);
   const emailRef = React.useRef<HTMLInputElement>(null);
+  const tinRef = React.useRef<HTMLInputElement>(null);
+  const devicenoRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (actionData?.errors?.name) {
@@ -71,47 +77,71 @@ export default function NewNotePage() {
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        width: "40%",
+        width: "100%",
       }}
     >
-      <div>
-        <label className="flex w-full flex-col gap-1">
-          <span>Name: </span>
-          <input
-            ref={nameRef}
-            name="name"
-            className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
-            aria-invalid={actionData?.errors?.name ? true : undefined}
-            aria-errormessage={
-              actionData?.errors?.name ? "title-error" : undefined
-            }
-          />
-        </label>
-        {actionData?.errors?.name && (
-          <div className="pt-1 text-red-700" id="title-error">
-            {actionData.errors.name}
-          </div>
-        )}
+      <div className="flex w-full space-x-4">
+        <div>
+          <label className="flex w-full flex-col gap-1">
+            <span>Name: </span>
+            <input
+              ref={nameRef}
+              name="name"
+              className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
+              aria-invalid={actionData?.errors?.name ? true : undefined}
+              aria-errormessage={
+                actionData?.errors?.name ? "title-error" : undefined
+              }
+            />
+          </label>
+          {actionData?.errors?.name && (
+            <div className="pt-1 text-red-700" id="title-error">
+              {actionData.errors.name}
+            </div>
+          )}
+        </div>
+        <div>
+          <label className="flex w-full flex-col gap-1">
+            <span>Email: </span>
+            <input
+              ref={nameRef}
+              name="email"
+              type="email"
+              className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
+              aria-invalid={actionData?.errors?.email ? true : undefined}
+              aria-errormessage={
+                actionData?.errors?.name ? "title-error" : undefined
+              }
+            />
+          </label>
+          {actionData?.errors?.email && (
+            <div className="pt-1 text-red-700" id="title-error">
+              {actionData.errors.email}
+            </div>
+          )}
+        </div>
       </div>
-      <div>
-        <label className="flex w-full flex-col gap-1">
-          <span>Email: </span>
-          <input
-            ref={emailRef}
-            name="email"
-            type="email"
-            className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
-            aria-invalid={actionData?.errors?.email ? true : undefined}
-            aria-errormessage={
-              actionData?.errors?.email ? "title-error" : undefined
-            }
-          />
-        </label>
-        {actionData?.errors?.email && (
-          <div className="pt-1 text-red-700" id="title-error">
-            {actionData.errors.email}
-          </div>
-        )}
+      <div className="flex w-full space-x-4">
+        <div>
+          <label className="flex w-full flex-col gap-1">
+            <span>TIN: </span>
+            <input
+              ref={tinRef}
+              name="tin"
+              className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
+            />
+          </label>
+        </div>
+        <div>
+          <label className="flex w-full flex-col gap-1">
+            <span>Device No: </span>
+            <input
+              ref={devicenoRef}
+              name="device_no"
+              className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
+            />
+          </label>
+        </div>
       </div>
 
 

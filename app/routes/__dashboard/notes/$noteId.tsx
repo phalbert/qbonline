@@ -36,7 +36,9 @@ export default function NoteDetailsPage() {
   return (
     <div>
       <h3 className="text-2xl font-bold">{item.name}</h3>
-      <p className="py-6">{item.email}</p>
+      <p>{item.email}</p>
+      <p>{item.tin}</p>
+      <p>{item.deviceno}</p>
       <hr className="my-4" />
       <div className="flex space-x-4">
         <Form method="post">
