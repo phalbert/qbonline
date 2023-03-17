@@ -33,7 +33,7 @@ export async function loader({ request }: LoaderArgs) {
           updated_at: new Date()
         })
 
-        await setSesisonData(request, "meta", token);
+      await setSesisonData(request, "meta", token);
     }
   }
 
