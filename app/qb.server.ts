@@ -220,7 +220,7 @@ export const getReceipts = async (request: Request) => getQBObjects(request, "Sa
 export const getItems = async (request: Request) => getQBObjects(request, "Item");
 
 export async function makeUpdate(request: Request, object: string) {
-    await getBearerToken(request);
+    var token = await getBearerToken(request);
 
     const url =
         oauthClient.environment === 'sandbox'
@@ -232,7 +232,7 @@ export async function makeUpdate(request: Request, object: string) {
     try {
         const result = await oauthClient
             .makeApiCall({
-                url: `${url}v3/company/4620816365270083480/${object}`,
+                url: `${url}v3/company/${token?.realmId}/${object}`,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
