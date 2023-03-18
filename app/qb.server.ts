@@ -123,19 +123,20 @@ export async function refreshToken() {
 }
 
 export async function getBearerToken(request: Request) {
-    const { data, error } = await getSupabase(request).from("tokens").select().single();
+    const { data } = await getSupabase(request).from("tokens").select().single();
 
     oauthClient.getToken().setToken({
+        "realmId": data?.realm_id,
         "token_type": "bearer",
-        "expires_in": 3600 - timeSince(new Date(data?.updated_at)),
+        "expires_in": data?.access_expires_in - timeSince(new Date(data?.updated_at)),
         "refresh_token": data?.refresh_token,
-        "x_refresh_token_expires_in": data?.refresh_expires_in,
+        "x_refresh_token_expires_in": data?.refresh_expires_in - timeSince(new Date(data?.created_at)),
         "access_token": data?.access_token,
     });
 
     if (oauthClient.isAccessTokenValid()) {
         console.log("token is valid");
-        return oauthClient.getToken();
+        return { token: oauthClient.getToken(), realmId: data?.realm_id };
     }
 
     if (!oauthClient.isAccessTokenValid()) {
@@ -149,7 +150,7 @@ export async function getBearerToken(request: Request) {
                 updated_at: new Date(),
                 realm_id: data?.realm_id
             })
-            return authResponse.getJson();
+            return { token: authResponse.getJson(), realmId: data?.realm_id };
         } catch (error) {
             throw error
         }
@@ -157,7 +158,7 @@ export async function getBearerToken(request: Request) {
 }
 
 export async function makeApiQuery(request: Request, query: string) {
-    await getBearerToken(request);
+    var token = await getBearerToken(request);
 
     const url =
         oauthClient.environment === 'sandbox'
@@ -165,7 +166,7 @@ export async function makeApiQuery(request: Request, query: string) {
             : OAuthClient.environment.production;
 
     return oauthClient
-        .makeApiCall({ url: `${url}v3/company/4620816365270083480/query?query=${query}` })
+        .makeApiCall({ url: `${url}v3/company/${token?.realmId}/query?query=${query}` })
 }
 
 const parseParams = (str: string) => {
@@ -184,7 +185,6 @@ export async function getQBObjects(request: Request, object: string) {
     const startPosition = parseInt(searchParams.get("startPosition")!) || 1;
     const maxResults = parseInt(searchParams.get("maxResults")!) || 10;
     const where = parseParams(searchParams.get("where")!) || { TxnDate: formatDate() };
-    console.log(where)
 
     const query: QuickBooksQuery = {
         select: '*',
