@@ -1,33 +1,38 @@
-import { ActionArgs, json, redirect } from "@remix-run/server-runtime";
+import { ActionArgs, json } from "@remix-run/server-runtime";
 import * as crypto from "crypto";
+import { getSupabase } from "~/supabase.server";
 
 
 export const action = async ({ request }: ActionArgs) => {
-    
-    var webhookPayload = JSON.stringify(request.body);
 
-    if (request.method !== "POST") {
-      return json({ message: "Method not allowed" }, 405);
+  // Verify the signature of the webhook event
+  const signature = request.headers.get('intuit-signature');
+  const payload = await request.json();
+
+  if (signature) return json({ msg: 'Invalid signature' }, 401);
+
+  // const secret = '48effaa9-5726-47a8-8048-a1d12bc010e4'; // replace with your actual webhook secret
+  // const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('base64');
+
+  // if (signature !== expectedSignature) {
+  //   console.error('Invalid webhook signature');
+  //   return json({ msg: 'Invalid signature' }, 400);
+  // }
+
+  const realmEvents = payload.eventNotifications[0].dataChangeEvent.entities
+
+  console.log(realmEvents)
+
+  for (const event of realmEvents) {
+    if (["Invoice", "SaleReceipt", "Item"].includes(event.name) && event.operation === "Create") {
+      await getSupabase(request).from("qb_events").insert({
+        qb_id: event.id,
+        name: event.name,
+        operation: event.operation,
+        updated_at: event.lastUpdated
+      })
     }
-    const payload = await request.json();
-  
-    /* Validate the webhook */
-    const signature = request.headers.get(
-      "X-Hub-Signature-256"
-    );
+  }
 
-    /**
-     * Validates the payload with the intuit-signature hash
-     */
-    var hash = crypto.createHmac('sha256', "config.webhooksVerifier").update(webhookPayload).digest('base64');
-    
-
-    if (signature !== hash) {
-      return json({ message: "Signature mismatch" }, 401);
-    }
-  
-    /* process the webhook (e.g. enqueue a background job) */
-    console.log(payload);
-  
-    return json({ success: true }, 200);
-  };
+  return json({ success: true }, 200);
+};

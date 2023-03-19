@@ -125,35 +125,37 @@ export async function refreshToken() {
 export async function getBearerToken(request: Request) {
     const { data } = await getSupabase(request).from("tokens").select().single();
 
+    const remainingAccessTime = data?.access_expires_in - timeSince(new Date(data?.updated_at))
+    const remainingRefreshTime = data?.refresh_expires_in - timeSince(new Date(data?.created_at))
+
     oauthClient.getToken().setToken({
         "realmId": data?.realm_id,
         "token_type": "bearer",
-        "expires_in": data?.access_expires_in - timeSince(new Date(data?.updated_at)),
+        "expires_in": remainingAccessTime,
         "refresh_token": data?.refresh_token,
-        "x_refresh_token_expires_in": data?.refresh_expires_in - timeSince(new Date(data?.created_at)),
+        "x_refresh_token_expires_in": remainingRefreshTime,
         "access_token": data?.access_token,
     });
 
-    if (oauthClient.isAccessTokenValid()) {
+    if (remainingAccessTime >= 600) {
         console.log("token is valid");
         return { token: oauthClient.getToken(), realmId: data?.realm_id };
     }
 
-    if (!oauthClient.isAccessTokenValid()) {
-        try {
-            console.log("token is invalid");
-            const authResponse = await oauthClient.refresh();
+    try {
+        console.log("token is invalid or expired");
+        const authResponse = await oauthClient.refresh();
 
-            await getSupabase(request).from("tokens").upsert({
-                access_token: authResponse.getJson()?.access_token,
-                access_expires_in: authResponse.getJson()?.expires_in,
-                updated_at: new Date(),
-                realm_id: data?.realm_id
-            })
-            return { token: authResponse.getJson(), realmId: data?.realm_id };
-        } catch (error) {
-            throw error
-        }
+        await getSupabase(request).from("tokens").upsert({
+            access_token: authResponse.getJson()?.access_token,
+            access_expires_in: authResponse.getJson()?.expires_in,
+            updated_at: new Date(),
+            realm_id: data?.realm_id
+        })
+
+        return { token: authResponse.getJson(), realmId: data?.realm_id };
+    } catch (error) {
+        throw error
     }
 }
 
