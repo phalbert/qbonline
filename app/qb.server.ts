@@ -11,6 +11,10 @@ const oauthClient = new OAuthClient({
     redirectUri: process.env.REACT_APP_REDIRECT_URI,
 });
 
+const url =
+    oauthClient.environment === 'sandbox'
+        ? OAuthClient.environment.sandbox
+        : OAuthClient.environment.production;
 
 interface QuickBooksQuery {
     select: string;
@@ -55,6 +59,30 @@ function generateQuickBooksQuery(query: QuickBooksQuery): string {
     return queryString;
 }
 
+export async function refreshTokens(token: any) {
+    if (!token) {
+        return Promise.reject(new Error('Nil Token passed for refreshTokensWithToken'))
+    }
+
+    const auth = 'Basic ' + Buffer.from(`${process.env.REACT_APP_CLIENT_ID}:${process.env.REACT_APP_CLIENT_SECRET}`).toString('base64');
+    console.log(auth)
+
+    const res = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Authorization': auth,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+            refresh_token: token,
+            grant_type: 'refresh_token'
+        })
+    });
+
+    const data = await res.json()
+    console.log("data", data)
+}
 
 // Ouath2
 export async function authorise() {
@@ -86,11 +114,6 @@ export async function getUserInfo() {
 // GetCompanyInfo
 export const getCompanyInfo = (userInfo: any) => {
     const companyID = oauthClient.getToken().realmId;
-
-    const url =
-        oauthClient.environment === 'sandbox'
-            ? OAuthClient.environment.sandbox
-            : OAuthClient.environment.production;
 
     return oauthClient
         .makeApiCall({ url: `${url}v3/company/${companyID}/companyinfo/${companyID}` })
@@ -128,30 +151,38 @@ export async function getBearerToken(request: Request) {
     const remainingAccessTime = data?.access_expires_in - timeSince(new Date(data?.updated_at))
     const remainingRefreshTime = data?.refresh_expires_in - timeSince(new Date(data?.created_at))
 
-    oauthClient.getToken().setToken({
+    const tokenObj = {
         "realmId": data?.realm_id,
         "token_type": "bearer",
         "expires_in": remainingAccessTime,
         "refresh_token": data?.refresh_token,
         "x_refresh_token_expires_in": remainingRefreshTime,
         "access_token": data?.access_token,
-    });
+    }
 
     if (remainingAccessTime >= 600) {
         console.log("token is valid");
-        return { token: oauthClient.getToken(), realmId: data?.realm_id };
+        oauthClient.getToken().setToken(tokenObj);
+        return { token: oauthClient.getToken().getToken(), realmId: data?.realm_id };
     }
 
     try {
         console.log("token is invalid or expired");
+        oauthClient.getToken().setToken({
+            "realmId": data?.realm_id,
+            "refresh_token": data?.refresh_token,
+            "x_refresh_token_expires_in": remainingRefreshTime,
+            "token_type": "refresh_token"
+        });
+
         const authResponse = await oauthClient.refresh();
 
-        await getSupabase(request).from("tokens").upsert({
+        await getSupabase(request).from("tokens").update({
             access_token: authResponse.getJson()?.access_token,
             access_expires_in: authResponse.getJson()?.expires_in,
             updated_at: new Date(),
             realm_id: data?.realm_id
-        })
+        }).eq('realm_id', data?.realm_id)
 
         return { token: authResponse.getJson(), realmId: data?.realm_id };
     } catch (error) {
